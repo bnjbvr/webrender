@@ -1277,6 +1277,7 @@ impl AlphaBatchBuilder {
                                             PrimitiveInstanceData::from(instance),
                                         );
                                     }
+                                    FilterOp::DropShadowStack(..) => { unimplemented!() } // TODO(nical)
                                     FilterOp::DropShadow(offset, ..) => {
                                         // Draw an instance of the shadow first, following by the content.
 
@@ -1385,6 +1386,7 @@ impl AlphaBatchBuilder {
                                             FilterOp::Brightness(..) => 7,
                                             FilterOp::Opacity(..) => 8,
                                             FilterOp::DropShadow(..) => 9,
+                                            FilterOp::DropShadowStack(..) => 9, // TODO(nical) double-check
                                             FilterOp::ColorMatrix(..) => 10,
                                             FilterOp::SrgbToLinear => 11,
                                             FilterOp::LinearToSrgb => 12,
@@ -1408,6 +1410,7 @@ impl AlphaBatchBuilder {
                                             }
                                             // Go through different paths
                                             FilterOp::Blur(..) |
+                                            FilterOp::DropShadowStack(..) |
                                             FilterOp::DropShadow(..) => {
                                                 unreachable!();
                                             }
