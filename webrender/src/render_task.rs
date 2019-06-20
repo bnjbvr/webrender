@@ -427,6 +427,13 @@ pub enum ClearMode {
     Transparent,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Hash)]
+pub enum BlurTaskKey {
+    DownScale(u32),
+    Blur(u32, f32),
+}
+pub type BlurTaskCache = FastHashMap<BlurTaskKey, RenderTaskId>;
+
 #[derive(Debug)]
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
@@ -730,6 +737,7 @@ impl RenderTask {
         render_tasks: &mut RenderTaskTree,
         target_kind: RenderTargetKind,
         clear_mode: ClearMode,
+        blur_cache: Option<&mut BlurTaskCache>,
     ) -> Self {
         // Adjust large std deviation value.
         let mut adjusted_blur_std_deviation = blur_std_deviation;
@@ -740,6 +748,7 @@ impl RenderTask {
         let mut adjusted_blur_target_size = blur_target_size;
         let mut downscaling_src_task_id = src_task_id;
         let mut scale_factor = 1.0;
+        let mut level = 1;
         while adjusted_blur_std_deviation.width > MAX_BLUR_STD_DEVIATION &&
               adjusted_blur_std_deviation.height > MAX_BLUR_STD_DEVIATION {
             if adjusted_blur_target_size.width < MIN_DOWNSCALING_RT_SIZE ||
@@ -749,14 +758,29 @@ impl RenderTask {
             adjusted_blur_std_deviation = adjusted_blur_std_deviation * 0.5;
             scale_factor *= 2.0;
             adjusted_blur_target_size = (blur_target_size.to_f32() / scale_factor).to_i32();
-            let downscaling_task = RenderTask::new_scaling(
-                downscaling_src_task_id,
-                render_tasks,
-                target_kind,
-                adjusted_blur_target_size,
+
+            let downscaling_src_task_id = blur_cache.and_then(|cache| {
+                cache.get(&BlurTaskKey::DownScale(level))
+            }).or_else(|| {
+                let downscaling_task = RenderTask::new_scaling(
+                    downscaling_src_task_id,
+                    render_tasks,
+                    target_kind,
+                    adjusted_blur_target_size,
+                );
+                render_tasks.add(downscaling_task)
             );
-            downscaling_src_task_id = render_tasks.add(downscaling_task);
+
+            if let Some(cache) = blur_cache {
+                cache.insert(BlurTaskKey:;DownScale(level), downscaling_src_task_id);
+            }
+
+            level += 1;
         }
+
+        let blur_task_id = blur_cache.and_then(|cache| {
+            cache.get(&BlurTaskKey::Blur(level))
+        }).or_else(|| {
 
         let blur_task_v = RenderTask::with_dynamic_location(
             adjusted_blur_target_size,
